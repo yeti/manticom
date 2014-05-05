@@ -1,0 +1,19 @@
+{
+    "urls" :[
+        {
+            "keyPath" : "meta",
+            "200+" : "$MCMeta"
+        }
+    ],
+    "objects" : [
+        {
+            "$MCMeta" : {
+                "limit" :"integer",
+                "next":"string",
+                "offset":"integer",
+                "previous":"string",
+                "total_count":"integer"
+            }
+        }
+    ]
+}
