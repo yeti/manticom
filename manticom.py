@@ -70,6 +70,8 @@ NS_DATA_TYPES = {
 
 force_overwrite = False
 
+logging.basicConfig(level=logging.INFO)
+
 def set_subtraction(original_dict, keys_to_remove):
     """
     Removes all keys in keys_to_remove from original_dict and returns a new dictionary with the 
@@ -302,7 +304,7 @@ def get_project_name_from_dir():
     return dir_parts[-1]
 
 
-def create_object_files(class_name, attrs, subclasses, is_cached):
+def create_object_files(parent_dir, class_name, attrs, subclasses, is_cached):
     base_object = "NSManagedObject" if is_cached else "NSObject"
     statement = "@dynamic" if is_cached else "@synthesize"
 
@@ -311,27 +313,34 @@ def create_object_files(class_name, attrs, subclasses, is_cached):
     body_out = None    
 
     filename = titlecase(class_name)
+    current_files = []
 
-    if os.path.isfile(filename + ".h"):
+    if os.path.isfile(parent_dir + filename + ".h"):
        if not force_overwrite:
            logging.info("Skipping %s.h..." % filename)
            header_out = open(os.devnull, 'w')
        else:
            logging.info("Overwriting %s.h..." % filename)
-           header_out = open(filename + ".h", "w")
+           header_out = open(parent_dir + filename + ".h", "w")
     
     else:
-        header_out = open(filename + ".h", "w")
+        header_out = open(parent_dir + filename + ".h", "w")
+        logging.info("Adding file %s.h..." % filename)
 
-    if os.path.isfile(filename + ".m"):
+    current_files.append(filename + ".h")
+
+    if os.path.isfile(parent_dir + filename + ".m"):
         if not force_overwrite:
             logging.info("Skipping %s.m..." % filename)
             body_out = open(os.devnull, 'w')
         else:
             logging.info("Overwriting %s.m..." % filename)
-            body_out = open(filename + ".m", "w")
+            body_out = open(parent_dir + filename + ".m", "w")
     else:
-        body_out = open(filename + ".m", "w")
+        body_out = open(parent_dir + filename + ".m", "w")
+        logging.info("Adding file %s.m..." % filename)
+
+    current_files.append(filename + ".m")
 
     template_dir = os.path.dirname(os.path.realpath(__file__)) + "/"
     template_file = "manticom.h.template"
@@ -383,6 +392,8 @@ def create_object_files(class_name, attrs, subclasses, is_cached):
         body_out.write("%s %s;\n" % (statement, safety_name(variable)))
     body_out.write("\n@end\n")
     body_out.close()
+
+    return current_files
 
 # Input schema:
 # {
@@ -776,8 +787,20 @@ def print_response_mapping(schema, outfile):
 
 
 def create_object_files_from_internal_schema(schema):
+    objs_dir = os.path.dirname(os.path.realpath(__file__)) + "/Objects/"
+
+    if not os.path.exists(objs_dir):
+        os.makedirs(objs_dir)
+
+    old_files = os.listdir(objs_dir)
+    current_files = []
+
     for d in schema:
-        create_object_files(d['class_name'], d['attrs'], d['subclasses'], d['is_cached'])
+        current_files += create_object_files(objs_dir, d['class_name'], d['attrs'], d['subclasses'], d['is_cached'])
+
+    for file_name in set(old_files).difference(set(current_files)):
+        os.remove(objs_dir + file_name)
+        logging.info("Deleted: %s" % file_name)
 
 # def parse_response_objects_from_list(schema, list, outfile):
 #     completed_objects = [] # object names with the $ prefix
@@ -1117,7 +1140,14 @@ def main_script(filename):
     #parse_objects_as_responses(schema["objects"], sys.stdout)
 
     mapping_buffer = StringIO.StringIO()
-    full_buffer = StringIO.StringIO()
+
+    models_dir = os.path.dirname(os.path.realpath(__file__)) + "/Models/"
+
+    if not os.path.exists(models_dir):
+        os.makedirs(models_dir)
+
+    m_buffer = open(models_dir + "DataModel.m", "w")
+    h_buffer = open(models_dir + "DataModel.h", "w")
 
     # parse and print url mapping buffer
     (request_mappings, response_mappings) = parse_urls(schema["urls"], mapping_buffer)
@@ -1132,11 +1162,11 @@ def main_script(filename):
     mappings.extend(response_mappings)
     mappings = list(set(mappings)) # remove duplicates
 
-    full_buffer.write("\n")
-    print_imports(mappings, full_buffer)
-    full_buffer.write("\n")
+    m_buffer.write("\n")
+    print_imports(mappings, m_buffer)
+    m_buffer.write("\n")
 
-    full_buffer.write('''-(void)setupMapping {
+    m_buffer.write('''-(void)setupMapping {
 NSIndexSet *successCodes = RKStatusCodeIndexSetForClass(RKStatusCodeClassSuccessful);
 NSIndexSet *failCodes = RKStatusCodeIndexSetForClass(RKStatusCodeClassClientError);
 NSIndexSet *serverFailCodes = RKStatusCodeIndexSetForClass(RKStatusCodeClassServerError);
@@ -1171,24 +1201,26 @@ if (! persistentStore) {
 
     # create objects for all defined objects, only for requests and responses 
     # (parameters are excluded, they are passed individually as arguments)
-    create_object_files_from_internal_schema(parsed_requests)
-    create_object_files_from_internal_schema(parsed_responses)
+    # Combine parsed_requests and parsed_responses in single call to make it more apparent
+    # which files have been added or deleted
+    create_object_files_from_internal_schema(parsed_requests + parsed_responses)
 
     # output mappings for objects that are referenced by requests and responses
-    print_request_mapping(parsed_requests, full_buffer)
-    print_response_mapping(parsed_responses, full_buffer)
+    print_request_mapping(parsed_requests, m_buffer)
+    print_response_mapping(parsed_responses, m_buffer)
 
-    full_buffer.write(mapping_buffer.getvalue())
-    full_buffer.write("}\n\n")
+    m_buffer.write(mapping_buffer.getvalue())
+    m_buffer.write("}\n\n")
 
     # print headers
-    print_methods_from_urls(schema["urls"], expanded_objects, False, full_buffer)
-    full_buffer.write("\n\n")
+    print_methods_from_urls(schema["urls"], expanded_objects, False, m_buffer)
+    m_buffer.write("\n\n")
 
-    # print body definitions for those headers
-    print_methods_from_urls(schema["urls"], expanded_objects, True, full_buffer)
+    # print body definitions for those headers (DataModel.h)
+    print_methods_from_urls(schema["urls"], expanded_objects, True, h_buffer)
 
-    print full_buffer.getvalue()
+    m_buffer.close()
+    h_buffer.close()
 
 
 # supports two formats
