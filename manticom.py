@@ -786,8 +786,10 @@ def print_response_mapping(schema, outfile):
         print_object_response_mapping(outfile, d['var_name'], d['class_name'], d['attrs'], d['subclasses'],d['is_cached'])
 
 
-def create_object_files_from_internal_schema(schema):
-    objs_dir = os.path.dirname(os.path.realpath(__file__)) + "/Objects/"
+# HERE IT IS
+        
+def create_object_files_at_project_dir_from_internal_schema(project_dir, schema):
+    objs_dir = project_dir + "/Objects/"
 
     if not os.path.exists(objs_dir):
         os.makedirs(objs_dir)
@@ -1123,6 +1125,7 @@ def build_object_list(mapping_names, expanded_object_schema):
             referenced_names.append(d["var_name"])
 
     dif_set = set(mapping_names).difference(referenced_names)
+
     if len(dif_set) > 0:
         logging.error("Objects were referenced but not defined: %s" % pformat(dif_set))
 
@@ -1141,13 +1144,47 @@ def main_script(filename):
 
     mapping_buffer = StringIO.StringIO()
 
-    models_dir = os.path.dirname(os.path.realpath(__file__)) + "/Models/"
+    #Testing
+    project_dir = raw_input("Please enter your project directory\n: ")
+    
+    models_dir = project_dir + "/Machine/"
 
     if not os.path.exists(models_dir):
         os.makedirs(models_dir)
 
-    m_buffer = open(models_dir + "DataModel.m", "w")
-    h_buffer = open(models_dir + "DataModel.h", "w")
+    print(models_dir)
+    m_buffer = open(models_dir + "MachineDataModel.m", "w")
+    h_buffer = open(models_dir + "MachineDataModel.h", "w")
+
+    h_buffer.write('''
+//
+//  MachineDataModel.h
+//
+//  Copyright (c) 2014 Yeti LLC. All rights reserved.
+//
+
+#import <Foundation/Foundation.h>
+#import <RestKit/RestKit.h>
+
+@interface MachineDataModel : NSObject
+
+-(void)setupMapping;
+                   ''')
+
+    m_buffer.write('''
+//
+//  MachineDataModel.m
+//
+//  Copyright (c) 2014 Yeti LLC. All rights reserved.
+//
+
+#import "MachineDataModel.h"
+
+#import <RestKit/RestKit.h>
+#import <AFNetworking-TastyPie/AFNetworking+ApiKeyAuthentication.h>
+
+#import "AppModel.h"
+                   ''')
 
     # parse and print url mapping buffer
     (request_mappings, response_mappings) = parse_urls(schema["urls"], mapping_buffer)
@@ -1165,8 +1202,10 @@ def main_script(filename):
     m_buffer.write("\n")
     print_imports(mappings, m_buffer)
     m_buffer.write("\n")
+    m_buffer.write('''
+@implementation MachineDataModel
 
-    m_buffer.write('''-(void)setupMapping {
+-(void)setupMapping {
 NSIndexSet *successCodes = RKStatusCodeIndexSetForClass(RKStatusCodeClassSuccessful);
 NSIndexSet *failCodes = RKStatusCodeIndexSetForClass(RKStatusCodeClassClientError);
 NSIndexSet *serverFailCodes = RKStatusCodeIndexSetForClass(RKStatusCodeClassServerError);
@@ -1203,7 +1242,9 @@ if (! persistentStore) {
     # (parameters are excluded, they are passed individually as arguments)
     # Combine parsed_requests and parsed_responses in single call to make it more apparent
     # which files have been added or deleted
-    create_object_files_from_internal_schema(parsed_requests + parsed_responses)
+
+    # need to pass path here.......
+    create_object_files_at_project_dir_from_internal_schema(project_dir, parsed_requests + parsed_responses)
 
     # output mappings for objects that are referenced by requests and responses
     print_request_mapping(parsed_requests, m_buffer)
@@ -1218,6 +1259,13 @@ if (! persistentStore) {
 
     # print body definitions for those headers (DataModel.h)
     print_methods_from_urls(schema["urls"], expanded_objects, True, h_buffer)
+
+    h_buffer.write('''
+@end
+                   ''')
+    m_buffer.write('''
+@end
+                   ''')
 
     m_buffer.close()
     h_buffer.close()
