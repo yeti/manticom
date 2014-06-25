@@ -1168,10 +1168,6 @@ def main_script(filename):
 
 @interface MachineDataModel : NSObject
 
-+ (MachineDataModel*)sharedModel;
-
-+ (BOOL)isDefined: (id) object;
-
 -(void)setupMapping;
                    ''')
 
@@ -1209,30 +1205,7 @@ def main_script(filename):
     m_buffer.write('''
 @implementation MachineDataModel
 
-// http://www.galloway.me.uk/tutorials/singleton-classes/
-+ (MachineDataModel*)sharedModel {
-  static MachineDataModel *sharedModel = nil;
-  static dispatch_once_t onceToken;
-  dispatch_once(&onceToken, ^{
-    sharedModel = [[self alloc] init];
-  });
-  return sharedModel;
-}
-
-+(BOOL) isDefined: (id) object {
-  return object != nil && object != [NSNull null];
-}
-
-  ////////////////////
- //MACHINE MAPPINGS//
-////////////////////
-#pragma mark -
-#pragma mark Machine Mappings
-                   ''')
-
-    
-
-    m_buffer.write('''-(void)setupMapping {
+-(void)setupMapping {
 NSIndexSet *successCodes = RKStatusCodeIndexSetForClass(RKStatusCodeClassSuccessful);
 NSIndexSet *failCodes = RKStatusCodeIndexSetForClass(RKStatusCodeClassClientError);
 NSIndexSet *serverFailCodes = RKStatusCodeIndexSetForClass(RKStatusCodeClassServerError);
