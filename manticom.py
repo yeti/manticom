@@ -481,8 +481,8 @@ def print_auth_type(outfile, auth_type):
     closing_line = "} else { \n[sharedMgr.HTTPClient clearAuthorizationHeader];\n}\n"
     if "basic" in auth_type:
         if "optional" in auth_type:
-            outfile.write("if ([AppModel sharedModel].user && [AppModel sharedModel].user.username && [AppModel sharedModel].password) { \n")
-        outfile.write("[sharedMgr.HTTPClient setAuthorizationHeaderWithUsername:[AppModel sharedModel].user.username password:[AppModel sharedModel].password];\n")
+            outfile.write("if ([AppModel sharedModel].user && [AppModel sharedModel].user." + field + " && [AppModel sharedModel].password) { \n")
+        outfile.write("[sharedMgr.HTTPClient setAuthorizationHeaderWithUsername:[AppModel sharedModel].user." + field + " password:[AppModel sharedModel].password];\n")
         if "optional" in auth_type:
             outfile.write(closing_line)
     elif "oauth" in auth_type:
@@ -493,8 +493,8 @@ def print_auth_type(outfile, auth_type):
             outfile.write(closing_line)
     elif "tastypie" in auth_type:
         if "optional" in auth_type:
-            outfile.write("if ([AppModel sharedModel].user && [AppModel sharedModel].user.username && [AppModel sharedModel].apikey) { \n")
-        outfile.write("[sharedMgr.HTTPClient setAuthorizationHeaderWithTastyPieUsername:[AppModel sharedModel].user.username andToken:[AppModel sharedModel].apikey];\n")
+            outfile.write("if ([AppModel sharedModel].user && [AppModel sharedModel].user." + field + " && [AppModel sharedModel].apikey) { \n")
+        outfile.write("[sharedMgr.HTTPClient setAuthorizationHeaderWithTastyPieUsername:[AppModel sharedModel].user." + field + " andToken:[AppModel sharedModel].apikey];\n")
         if "optional" in auth_type:
             outfile.write(closing_line)
     else:
@@ -1135,6 +1135,9 @@ def build_object_list(mapping_names, expanded_object_schema):
 #
 
 def main_script(filename):
+    global field
+    field = raw_input('Please enter field for username: ')
+    print(field)
     f = open(filename, "r")
     schema = json.loads(f.read())
     f.close()
@@ -1274,9 +1277,9 @@ if (! persistentStore) {
 # supports two formats
 # script.py -f filename
 # script.py filename
-if len(sys.argv) > 3 or len(sys.argv) <= 1:
-    print "Usage: " + sys.argv[0] + " <filename>"
-    print "       " + sys.argv[0] + " -f <filename>"
+if len(sys.argv) > 4 or len(sys.argv) <= 1:
+    print "Usage: " + sys.argv[0] + " <filename> <authenticationfield>"
+    print "       " + sys.argv[0] + " -f <filename> <authenticationfield>"
     print "   where -f forces existing files to be overwritten"
 else:
     i = 1
