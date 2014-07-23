@@ -1,11 +1,11 @@
 Manticom
 ========
-# Installation
+## Installation
 Install by cloning this repository
 ```
 git clone https://github.com/YetiHQ/manticom.git
 ```
-# Basic Usage
+## Basic Usage
 1. Run the following script
 ```
 python ~/path/to/manticom.py -f ~/path/to/manticom-schema.json
